@@ -24,7 +24,9 @@ A self-contained, real-time bus tracking application using **Node.js**, **Socket
     ```
 
 3.  **Open in Browser**
-    .   **live link**: [https://bustrackersystem](https://bustrckingsystem.onrender.com/)
+   
+    -   **live link for Passengers**: [https://bustrackersystem.com](https://bustrckingsystem.onrender.com/)
+    -   **Live link for Driver**:[https://bustrackersystem.com/driver](https://bustrckingsystem.onrender.com/driver)
     -   **Tracker Map**: [http://localhost:3000](http://localhost:3000)
     -   **Driver App**: [http://localhost:3000/driver](http://localhost:3000/driver)
 
