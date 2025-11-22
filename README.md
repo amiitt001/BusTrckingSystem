@@ -1,5 +1,4 @@
 # Real-Time Bus Tracking System
-![Click here ](https://bustrckingsystem.onrender.com/)
 
 A self-contained, real-time bus tracking application using **Node.js**, **Socket.io**, and **Leaflet** (OpenStreetMap).
 
@@ -25,6 +24,7 @@ A self-contained, real-time bus tracking application using **Node.js**, **Socket
     ```
 
 3.  **Open in Browser**
+    .   **live link**: [https://bustrackersystem](https://bustrckingsystem.onrender.com/)
     -   **Tracker Map**: [http://localhost:3000](http://localhost:3000)
     -   **Driver App**: [http://localhost:3000/driver](http://localhost:3000/driver)
 
