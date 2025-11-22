@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bus Tracker</title>
+
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+        integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
+
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', system-ui, sans-serif;
+        }
+
+        #map {
+            height: 100vh;
+            width: 100vw;
+            z-index: 1;
+        }
+
+        .overlay {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            z-index: 1000;
+            background: white;
+            padding: 15px 25px;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+        }
+
+        .overlay h1 {
+            margin: 0;
+            font-size: 1.2rem;
+            color: #1f2937;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .status {
+            margin-top: 5px;
+            font-size: 0.9rem;
+            color: #6b7280;
+        }
+
+        .live-indicator {
+            width: 8px;
+            height: 8px;
+            background: #22c55e;
+            border-radius: 50%;
+            display: inline-block;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="overlay">
+        <h1>🚍 Bus Tracker</h1>
+        <div class="status">
+            <span class="live-indicator"></span> Live Updates
+        </div>
+    </div>
+
+    <div id="map"></div>
+
+    <!-- Leaflet JS -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+        integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+
+    <!-- Socket.io -->
+    <script src="/socket.io/socket.io.js"></script>
+
+    <script>
+        const socket = io();
+
+        // Default starting location (Greater Noida)
+        const startLocation = [28.4744, 77.5040];
+        const zoomLevel = 15;
+
+        // Initialize Leaflet Map
+        const map = L.map('map').setView(startLocation, zoomLevel);
+
+        // Add OpenStreetMap tile layer
+        L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            maxZoom: 19,
+            attribution: '&copy; <a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+        }).addTo(map);
+
+        // Custom Bus Icon
+        const busIcon = L.icon({
+            iconUrl: 'https://cdn-icons-png.flaticon.com/512/3448/3448339.png', // Simple bus icon
+            iconSize: [40, 40],
+            iconAnchor: [20, 20],
+            popupAnchor: [0, -20]
+        });
+
+        let busMarker = null;
+
+        // Listen for bus location updates from the server
+        socket.on('busLocation', (data) => {
+            console.log("Received new location:", data);
+            const newPosition = [data.latitude, data.longitude];
+
+            if (busMarker) {
+                // Move existing marker
+                busMarker.setLatLng(newPosition);
+            } else {
+                // Create new marker
+                busMarker = L.marker(newPosition, { icon: busIcon }).addTo(map)
+                    .bindPopup('<b>Bus 1</b><br>On Route')
+                    .openPopup();
+            }
+
+            // Smoothly pan to the new location
+            map.panTo(newPosition);
+        });
+    </script>
+</body>
+
+</html>
