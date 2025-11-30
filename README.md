@@ -1,52 +1,73 @@
-# Real-Time Bus Tracking System
+# React + TypeScript + Vite
 
-A self-contained, real-time bus tracking application using **Node.js**, **Socket.io**, and **Leaflet** (OpenStreetMap).
+This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
 
-![Tracker Map UI](https://github.com/user-attachments/assets/placeholder-image-1)
-*(Note: You can replace this with your actual screenshot after uploading to GitHub)*
+Currently, two official plugins are available:
 
-## Features
--   **Real-time Tracking**: Uses WebSockets to update bus location instantly.
--   **No API Keys**: Uses OpenStreetMap and Leaflet, so no Google Maps API key is required.
--   **Driver App**: A mobile-friendly interface for the driver to send location updates.
--   **Simulation Mode**: Test the tracking functionality without moving.
+- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
+- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
 
-## Quick Start
+## React Compiler
 
-1.  **Install Dependencies**
-    ```bash
-    npm install
-    ```
+The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
 
-2.  **Start the Server**
-    ```bash
-    npm start
-    ```
+## Expanding the ESLint configuration
 
-3.  **Open in Browser**
-    -   **Tracker Map**: [http://localhost:3000](http://localhost:3000)
-    -   **Driver App**: [http://localhost:3000/driver](http://localhost:3000/driver)
+If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
 
-## How it Works
+```js
+export default defineConfig([
+  globalIgnores(['dist']),
+  {
+    files: ['**/*.{ts,tsx}'],
+    extends: [
+      // Other configs...
 
-1.  **Backend**: A Node.js server with `socket.io` listens for location updates.
-2.  **Driver App**: Sends the device's GPS coordinates (or simulated coordinates) to the server.
-3.  **Tracker Map**: Listens for updates and moves the bus marker on the map in real-time.
+      // Remove tseslint.configs.recommended and replace with this
+      tseslint.configs.recommendedTypeChecked,
+      // Alternatively, use this for stricter rules
+      tseslint.configs.strictTypeChecked,
+      // Optionally, add this for stylistic rules
+      tseslint.configs.stylisticTypeChecked,
 
-## Deployment
+      // Other configs...
+    ],
+    languageOptions: {
+      parserOptions: {
+        project: ['./tsconfig.node.json', './tsconfig.app.json'],
+        tsconfigRootDir: import.meta.dirname,
+      },
+      // other options...
+    },
+  },
+])
+```
 
-This app is ready to deploy on platforms like **Render**, **Railway**, or **Heroku**.
+You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
 
-1.  Push this code to a GitHub repository.
-2.  Connect your repository to a hosting provider.
-3.  Use the following settings:
-    -   **Build Command**: `npm install`
-    -   **Start Command**: `node index.js`
+```js
+// eslint.config.js
+import reactX from 'eslint-plugin-react-x'
+import reactDom from 'eslint-plugin-react-dom'
 
-## Screenshots
-
-### Driver App
-![Driver App](https://github.com/user-attachments/assets/placeholder-image-2)
-
-### Tracker Map
-![Tracker Map](https://github.com/user-attachments/assets/placeholder-image-3)
+export default defineConfig([
+  globalIgnores(['dist']),
+  {
+    files: ['**/*.{ts,tsx}'],
+    extends: [
+      // Other configs...
+      // Enable lint rules for React
+      reactX.configs['recommended-typescript'],
+      // Enable lint rules for React DOM
+      reactDom.configs.recommended,
+    ],
+    languageOptions: {
+      parserOptions: {
+        project: ['./tsconfig.node.json', './tsconfig.app.json'],
+        tsconfigRootDir: import.meta.dirname,
+      },
+      // other options...
+    },
+  },
+])
+```

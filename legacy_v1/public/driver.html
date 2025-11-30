@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Driver App - Bus Tracker</title>
+    <link rel="stylesheet" href="css/driver.css">
+</head>
+
+<body>
+
+    <div class="card">
+        <h1>🚍 Driver App</h1>
+
+        <div class="status-box">
+            <div class="status-label">Status</div>
+            <div id="status-text" class="status-value">Waiting for GPS...</div>
+        </div>
+
+        <div id="coords-display" class="coords" style="display: none;">
+            Lat: <span id="lat">--</span> | Lng: <span id="lng">--</span>
+        </div>
+
+        <div id="controls">
+            <button id="sim-btn" onclick="toggleSimulation()">Start Simulation</button>
+        </div>
+
+        <div id="error"></div>
+    </div>
+
+    <!-- Socket.io -->
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="js/driver.js"></script>
+</body>
+
+</html>
