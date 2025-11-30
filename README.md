@@ -13,7 +13,16 @@ The React Compiler is not enabled on this template because of its impact on dev 
 
 ## Expanding the ESLint configuration
 
+<<<<<<< HEAD
 If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+=======
+3.  **Open in Browser**
+   
+    -   **live link for Passengers**: [https://bustrackersystem.com](https://bustrckingsystem.onrender.com/)
+    -   **Live link for Driver**:[https://bustrackersystem.com/driver](https://bustrckingsystem.onrender.com/driver)
+    -   **Tracker Map**: [http://localhost:3000](http://localhost:3000)
+    -   **Driver App**: [http://localhost:3000/driver](http://localhost:3000/driver)
+>>>>>>> 29588890337bcb412db993e284a10c01416cec0d
 
 ```js
 export default defineConfig([
