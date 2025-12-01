@@ -4,13 +4,13 @@ import { initializeFirestore, persistentLocalCache, persistentMultipleTabManager
 
 // TODO: Replace the following with your app's Firebase project configuration
 const firebaseConfig = {
-    apiKey: "AIzaSyDq1pFuECIZIOYHssmtO0DqWwCiK_mUMvI",
-    authDomain: "bustrackingsystem-c7689.firebaseapp.com",
-    databaseURL: "https://bustrackingsystem-c7689-default-rtdb.asia-southeast1.firebasedatabase.app",
-    projectId: "bustrackingsystem-c7689",
-    storageBucket: "bustrackingsystem-c7689.firebasestorage.app",
-    messagingSenderId: "481259863828",
-    appId: "1:481259863828:web:084e5445da92a67d338c01"
+    apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
+    authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
+    databaseURL: import.meta.env.VITE_FIREBASE_DATABASE_URL,
+    projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
+    storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
+    messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
+    appId: import.meta.env.VITE_FIREBASE_APP_ID
 };
 
 // Initialize Firebase
