@@ -1,241 +1,248 @@
-```
-import { useState, useEffect, useRef } from 'react';
-import { database } from '../firebase';
-import { ref, set, update } from 'firebase/database';
-import { calculateDistance } from '../utils/geo';
+import { useState, useRef } from 'react';
+import { db } from '../firebase';
+import { doc, getDoc, setDoc, updateDoc, deleteDoc, serverTimestamp } from 'firebase/firestore';
 import DriverDashboard from '../components/DriverDashboard';
+import SetupShift from '../components/SetupShift';
 
 const Driver = () => {
-  // Shift State
   const [isShiftStarted, setIsShiftStarted] = useState(false);
   const [routeId, setRouteId] = useState('');
   const [busNumber, setBusNumber] = useState('');
-
-  // Tracking State
-  const [status, setStatus] = useState('Waiting for GPS...');
-  const [isSimulating, setIsSimulating] = useState(false);
-  const [location, setLocation] = useState<{ lat: number; lng: number } | null>(null);
+  const [status, setStatus] = useState('Disconnected');
   const [error, setError] = useState('');
-  const [issue, setIssue] = useState('OK');
   const [speed, setSpeed] = useState(0);
+  const [isSimulating, setIsSimulating] = useState(false);
 
-  // Throttling Refs
-  const lastBroadcastTime = useRef<number>(0);
-  const lastBroadcastPos = useRef<{ lat: number; lng: number } | null>(null);
-  const simIntervalId = useRef<NodeJS.Timeout | null>(null);
+  // Refs for simulation
+  const simulationInterval = useRef<ReturnType<typeof setInterval> | null>(null);
+  const currentSimIndex = useRef(0);
+  const watchId = useRef<number | null>(null);
 
-  const startShift = () => {
+  // Simulated Route (Circular Path)
+  const simulatedRoute = [
+    { lat: 28.6139, lng: 77.2090 }, // New Delhi
+    { lat: 28.5355, lng: 77.3910 }, // Noida
+    { lat: 28.4595, lng: 77.0266 }, // Gurgaon
+    { lat: 28.6139, lng: 77.2090 }  // Back to New Delhi
+  ];
+
+  const [isLoading, setIsLoading] = useState(false);
+
+  const handleStartShift = async () => {
     if (!routeId || !busNumber) {
-      setError("Please enter Route ID and Bus Number");
-      return;
-    }
-    
-    // Request Geolocation Permission immediately
-    if (!navigator.geolocation) {
-      setError("Geolocation is not supported by your browser.");
+      setError('Please enter both Route ID and Bus Number');
       return;
     }
 
-    navigator.geolocation.getCurrentPosition(
-      () => {
-        // Permission granted
-        setIsShiftStarted(true);
-        setError('');
-        
-        // Initialize in DB
-        set(ref(database, 'bus/info'), {
-          routeId,
-          busNumber,
-          status: 'Active',
-          startTime: Date.now()
-        });
-      },
-      (err) => {
-        // Permission denied or error
-        console.error(err);
-        setError("Location permission denied. Please enable GPS.");
+    setIsLoading(true);
+    setError('');
+
+    try {
+      // Check if route already exists (only if online)
+      const routeRef = doc(db, 'active_buses', routeId);
+      try {
+        const routeSnap = await getDoc(routeRef);
+        if (routeSnap.exists()) {
+          const data = routeSnap.data();
+          const lastUpdated = data.lastUpdated?.toDate ? data.lastUpdated.toDate() : new Date(data.lastUpdated);
+          const now = new Date();
+          const diffInMinutes = (now.getTime() - lastUpdated.getTime()) / (1000 * 60);
+
+          if (diffInMinutes < 15) {
+            setError(`Route ${routeId} is already active! Please use a different Route ID.`);
+            setIsLoading(false);
+            return;
+          } else {
+            console.log(`Route ${routeId} is stale (${Math.round(diffInMinutes)} mins). Overwriting...`);
+          }
+        }
+      } catch (err: unknown) {
+        // If offline, we can't check, so we assume it's fine and proceed (optimistic)
+        const error = err as { code?: string; message?: string };
+        if (error.code === 'unavailable' || error.message?.includes('offline')) {
+          console.warn("Offline: Skipping route check.");
+        } else {
+          throw err;
+        }
       }
-    );
-  };
 
-  const stopShift = () => {
-    setIsShiftStarted(false);
-    setIsSimulating(false);
-    if (simIntervalId.current) clearInterval(simIntervalId.current);
-    setStatus('Shift Ended');
-    
-    // Update DB
-    update(ref(database, 'bus/info'), {
-      status: 'Inactive',
-      endTime: Date.now()
-    });
-  };
-
-  const broadcastLocation = (lat: number, lng: number, currentSpeed?: number) => {
-    const now = Date.now();
-    let shouldBroadcast = false;
-
-    // Rule 1: Time-based throttling (5 seconds)
-    if (now - lastBroadcastTime.current > 5000) {
-      shouldBroadcast = true;
-    } 
-    // Rule 2: Distance-based throttling (20 meters)
-    else if (lastBroadcastPos.current) {
-      const dist = calculateDistance(
-        lastBroadcastPos.current.lat, 
-        lastBroadcastPos.current.lng, 
-        lat, 
-        lng
-      );
-      if (dist > 20) {
-        shouldBroadcast = true;
+      // Request Geolocation Permission
+      if (!navigator.geolocation) {
+        setError('Geolocation is not supported by your browser');
+        setIsLoading(false);
+        return;
       }
-    } else {
-      shouldBroadcast = true; // First update
-    }
 
-    if (shouldBroadcast) {
-      setLocation({ lat, lng });
-      if (currentSpeed !== undefined) setSpeed(Math.round(currentSpeed * 3.6)); // Convert m/s to km/h
-      
-      lastBroadcastTime.current = now;
-      lastBroadcastPos.current = { lat, lng };
+      navigator.geolocation.getCurrentPosition(
+        async (position) => {
+          // Initial write to Firestore
+          await setDoc(routeRef, {
+            routeId,
+            busNumber,
+            driverStatus: 'active',
+            location: {
+              lat: position.coords.latitude,
+              lng: position.coords.longitude
+            },
+            heading: position.coords.heading || 0,
+            speed: position.coords.speed || 0,
+            lastUpdated: serverTimestamp()
+          });
 
-      update(ref(database, 'bus/location'), {
-        latitude: lat,
-        longitude: lng,
-        timestamp: now,
-        status: issue,
-        speed: currentSpeed ? Math.round(currentSpeed * 3.6) : 0
-      }).catch((err) => {
-        console.error("Firebase Error:", err);
-      });
-    }
-  };
-
-  const reportIssue = (newIssue: string) => {
-    setIssue(newIssue);
-    // Immediately update status in DB
-    update(ref(database, 'bus/location'), {
-      status: newIssue,
-      timestamp: Date.now()
-    });
-  };
-
-  const toggleSimulation = () => {
-    if (isSimulating) {
-      // Stop Simulation
-      if (simIntervalId.current) clearInterval(simIntervalId.current);
-      simIntervalId.current = null;
-      setIsSimulating(false);
-      setStatus('Simulation Paused');
-    } else {
-      // Start Simulation
-      setIsSimulating(true);
-      setStatus('Simulating...');
-      
-      let simLat = 28.4744;
-      let simLng = 77.5040;
-
-      simIntervalId.current = setInterval(() => {
-        // Simulate movement
-        simLat += 0.0001; 
-        simLng += 0.0001;
-        broadcastLocation(simLat, simLng, 10); // Simulate 10 m/s speed
-      }, 1000); 
-    }
-  };
-
-  useEffect(() => {
-    if (isSimulating || !isShiftStarted) return;
-
-    if (navigator.geolocation) {
-      const watchId = navigator.geolocation.watchPosition(
-        (position) => {
+          setIsShiftStarted(true);
           setStatus('Live Tracking');
-          broadcastLocation(
-            position.coords.latitude, 
-            position.coords.longitude,
-            position.coords.speed || 0
-          );
+          setError('');
+          startTracking();
+          setIsLoading(false);
         },
         (err) => {
-          console.error(err);
-          setError(err.message);
-          setStatus('GPS Error');
+          setError(`GPS Error: ${err.message}. Please enable location services.`);
+          setIsLoading(false);
         },
         { enableHighAccuracy: true }
       );
 
-      return () => navigator.geolocation.clearWatch(watchId);
+    } catch (err: unknown) {
+      console.error("Error starting shift:", err);
+      setError('Failed to start shift. Please try again.');
+      setIsLoading(false);
     }
-  }, [isSimulating, isShiftStarted, issue]);
+  };
 
-  // If shift hasn't started, show a simple form to enter details
-  // But we want to use the Dashboard UI even for the start screen if possible, 
-  // or at least wrap the form nicely. 
-  // For now, we'll keep the simple form for input, then switch to Dashboard.
-  
-  if (!isShiftStarted) {
-    return (
-      <div className="min-h-screen bg-slate-900 text-white flex flex-col items-center justify-center p-4">
-        <div className="bg-slate-800 p-8 rounded-2xl shadow-2xl w-full max-w-md">
-          <h1 className="text-3xl font-bold mb-6 text-center text-blue-400">🚍 Setup Shift</h1>
-          
-          <div className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-slate-400 mb-1">Route ID</label>
-              <input 
-                type="text" 
-                placeholder="e.g., R-101"
-                value={routeId}
-                onChange={(e) => setRouteId(e.target.value)}
-                className="w-full p-4 bg-slate-700 rounded-xl border border-slate-600 text-white focus:ring-2 focus:ring-blue-500 outline-none transition-all"
-              />
-            </div>
-            
-            <div>
-              <label className="block text-sm font-medium text-slate-400 mb-1">Bus Number</label>
-              <input 
-                type="text" 
-                placeholder="e.g., UP-16-1234"
-                value={busNumber}
-                onChange={(e) => setBusNumber(e.target.value)}
-                className="w-full p-4 bg-slate-700 rounded-xl border border-slate-600 text-white focus:ring-2 focus:ring-blue-500 outline-none transition-all"
-              />
-            </div>
+  const handleStopShift = async () => {
+    if (routeId) {
+      try {
+        const routeRef = doc(db, 'active_buses', routeId);
+        await deleteDoc(routeRef);
+      } catch (err) {
+        console.error("Error stopping shift:", err);
+      }
+    }
 
-            <button 
-              onClick={startShift}
-              className="w-full py-4 bg-blue-600 hover:bg-blue-700 rounded-xl font-bold text-lg shadow-lg transform active:scale-95 transition-all"
-            >
-              Initialize Dashboard
-            </button>
-          </div>
+    setIsShiftStarted(false);
+    setStatus('Disconnected');
+    setRouteId('');
+    setBusNumber('');
+    stopTracking();
+  };
 
-          {error && (
-            <div className="mt-4 p-4 bg-red-900/50 border border-red-500/50 rounded-xl text-red-200 text-center">
-              {error}
-            </div>
-          )}
-        </div>
-      </div>
-    );
-  }
+  const startTracking = () => {
+    if (navigator.geolocation) {
+      watchId.current = navigator.geolocation.watchPosition(
+        async (position) => {
+          const { latitude, longitude, speed: gpsSpeed, heading } = position.coords;
+          setSpeed(Math.round((gpsSpeed || 0) * 3.6)); // Convert m/s to km/h
+          setStatus('Live Tracking');
+
+          if (routeId) {
+            const routeRef = doc(db, 'active_buses', routeId);
+            await updateDoc(routeRef, {
+              location: { lat: latitude, lng: longitude },
+              heading: heading || 0,
+              speed: Math.round((gpsSpeed || 0) * 3.6),
+              lastUpdated: serverTimestamp()
+            });
+          }
+        },
+        (err) => {
+          console.error(err);
+          setStatus('GPS Error');
+        },
+        {
+          enableHighAccuracy: true,
+          maximumAge: 0,
+          timeout: 5000
+        }
+      );
+    }
+  };
+
+  const stopTracking = () => {
+    if (watchId.current !== null) {
+      navigator.geolocation.clearWatch(watchId.current);
+      watchId.current = null;
+    }
+    if (simulationInterval.current) {
+      clearInterval(simulationInterval.current);
+      simulationInterval.current = null;
+    }
+    setIsSimulating(false);
+  };
+
+  const toggleSimulation = () => {
+    if (isSimulating) {
+      if (simulationInterval.current) clearInterval(simulationInterval.current);
+      setIsSimulating(false);
+      startTracking(); // Revert to real GPS
+    } else {
+      stopTracking(); // Stop real GPS
+      setIsSimulating(true);
+      setStatus('Simulating');
+
+      simulationInterval.current = setInterval(async () => {
+        // const start = simulatedRoute[currentSimIndex.current]; // Unused
+        const end = simulatedRoute[(currentSimIndex.current + 1) % simulatedRoute.length];
+
+        // Simple interpolation (just jumping for now for simplicity)
+        // In a real app, you'd interpolate steps between start and end
+        const nextPos = end;
+
+        currentSimIndex.current = (currentSimIndex.current + 1) % simulatedRoute.length;
+
+        if (routeId) {
+          const routeRef = doc(db, 'active_buses', routeId);
+          await updateDoc(routeRef, {
+            location: nextPos,
+            heading: 0, // Calculate heading if needed
+            speed: 45, // Simulated speed
+            lastUpdated: serverTimestamp()
+          });
+          setSpeed(45);
+        }
+
+      }, 3000); // Update every 3 seconds
+    }
+  };
+
+  const handleReportIssue = async (issue: string) => {
+    if (routeId) {
+      const routeRef = doc(db, 'active_buses', routeId);
+      await updateDoc(routeRef, {
+        driverStatus: issue,
+        lastUpdated: serverTimestamp()
+      });
+      alert(`Reported: ${issue}`);
+    }
+  };
 
   return (
-    <DriverDashboard 
-      isShiftStarted={isShiftStarted}
-      status={status}
-      speed={speed}
-      onStartShift={startShift} // Not really used once started, but kept for prop type
-      onStopShift={stopShift}
-      onReportIssue={reportIssue}
-      routeId={routeId}
-      busNumber={busNumber}
-    />
+    <>
+      {!isShiftStarted ? (
+        <SetupShift
+          routeId={routeId}
+          setRouteId={setRouteId}
+          busNumber={busNumber}
+          setBusNumber={setBusNumber}
+          onStartShift={handleStartShift}
+          error={error}
+          isLoading={isLoading}
+        />
+      ) : (
+        <DriverDashboard
+          isShiftStarted={isShiftStarted}
+          status={status}
+          speed={speed}
+          onStartShift={handleStartShift}
+          onStopShift={handleStopShift}
+          onReportIssue={handleReportIssue}
+          onToggleSimulation={toggleSimulation}
+          isSimulating={isSimulating}
+          routeId={routeId}
+          busNumber={busNumber}
+        />
+      )}
+    </>
   );
 };
 
 export default Driver;
-```

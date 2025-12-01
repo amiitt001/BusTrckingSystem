@@ -10,7 +10,7 @@ import { calculateDistance, formatDuration, COLLEGE_LOCATION, BUS_STOPS } from '
 import icon from 'leaflet/dist/images/marker-icon.png';
 import iconShadow from 'leaflet/dist/images/marker-shadow.png';
 
-let DefaultIcon = L.icon({
+const DefaultIcon = L.icon({
     iconUrl: icon,
     shadowUrl: iconShadow,
     iconSize: [25, 41],
@@ -44,9 +44,17 @@ const MapUpdater = ({ center }: { center: [number, number] }) => {
     return null;
 };
 
+interface BusData {
+    latitude: number;
+    longitude: number;
+    timestamp: number;
+    status: string;
+    [key: string]: unknown;
+}
+
 const Tracker = () => {
     const [position, setPosition] = useState<[number, number]>([28.4744, 77.5040]);
-    const [busData, setBusData] = useState<any>(null);
+    const [busData, setBusData] = useState<BusData | null>(null);
     const [isConnected, setIsConnected] = useState(false);
     const [eta, setEta] = useState<string>('--');
     const [statusColor, setStatusColor] = useState('#22c55e');
